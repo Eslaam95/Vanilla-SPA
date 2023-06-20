@@ -1,6 +1,10 @@
-/*crating suggestion card to be added inside video requests section*/
-function createNewCard(vidInfo){
-
+let sortBy='newFirst';
+let searchTerm ='';
+const reqList = document.getElementById('listOfRequests');
+const searchBox = document.getElementById('search-box');  
+/*render 1 video card with votes function*/
+function createNewCard(vidInfo, injected = false){
+   
     let cardContainer = document.createElement('div');
 
     cardContainer.innerHTML=` 
@@ -14,9 +18,9 @@ function createNewCard(vidInfo){
                 </p>
             </div>
             <div class="d-flex flex-column text-center">
-                <a class="btn btn-link">🔺</a>
-                <h3>0</h3>
-                <a class="btn btn-link">🔻</a>
+                <a id="votes_ups_${vidInfo._id}" class="btn btn-link">🔺</a>
+                <h3 id="votes_score_${vidInfo._id}">${vidInfo.votes.ups - vidInfo.votes.downs}</h3>
+                <a id="votes_downs_${vidInfo._id}" class="btn btn-link">🔻</a>
             </div>
             </div>
             <div class="card-footer d-flex flex-row justify-content-between">
@@ -34,24 +38,86 @@ function createNewCard(vidInfo){
             </div>
             </div>
         </div>`;
+    if(injected === true){
+        reqList.prepend(cardContainer); 
+    }else{
+        reqList.appendChild(cardContainer); 
+    }
 
-    return cardContainer;
+      
+    /*card votes up/down*/
+    const votesUpsElm = document.getElementById(`votes_ups_${vidInfo._id}`);
+    const votesDownsElm = document.getElementById(`votes_downs_${vidInfo._id}`);
+    const votesScoreElm = document.getElementById(`votes_score_${vidInfo._id}`);
+    
+    votesUpsElm.addEventListener('click', (e) =>{
+        
+        fetch('http://localhost:7777/video-request/vote',{
+            method:"PUT",
+            headers:{'content-Type':'application/json'},
+            body: JSON.stringify({id:vidInfo._id, vote_type:'ups'})
+        })
+        .then(blob => blob.json())
+        .then(data => votesScoreElm.innerHTML = data.ups - data.downs)
+    })
+    votesDownsElm.addEventListener('click', (e) =>{
+        
+        fetch('http://localhost:7777/video-request/vote',{
+            method:"PUT",
+            headers:{'content-Type':'application/json'},
+            body: JSON.stringify({id:vidInfo._id, vote_type:'downs'})
+        })
+        .then(blob => blob.json())
+        .then(data => votesScoreElm.innerHTML = data.ups - data.downs)
+    })
+
 }
 
-/*main*/
-document.addEventListener('DOMContentLoaded', ()=>{
-    /*display req cards*/
-    const reqList = document.getElementById('listOfRequests');
-    fetch('http://localhost:7777/video-request')
+/*load cards' data and add it to the section*/
+function loadAllReq(sortBy="newFirst",searchTerm=''){
+    fetch(`http://localhost:7777/video-request?sortBy=${sortBy}&searchTerm=${searchTerm}`)
     .then(blob => blob.json())
     .then((data) => {
-        data.forEach((vidInfo)=>{
-            console.log(vidInfo);
-            reqList.appendChild(createNewCard(vidInfo));
-       
+        reqList.innerHTML='';
+        data.forEach((vidInfo)=>{  
+            createNewCard(vidInfo);
+            
         })
     })
-           
+}
+
+/*international debounce*/
+function debounce(fn,time){
+    let timeout;
+    return function(...args){
+        clearTimeout(timeout);
+        timeout= setTimeout(()=>{fn.apply(this,args)}, time)
+    }
+}
+
+/*MAIN*/
+document.addEventListener('DOMContentLoaded', ()=>{
+    /*display req cards*/
+    loadAllReq(sortBy,searchTerm);
+
+    searchBox.addEventListener(
+        'input', 
+        debounce((e)=>{
+            searchTerm = e.target.value;
+            loadAllReq(sortBy,searchTerm);
+        },300)
+    )
+    /*cort req cards*/
+    let sortLabel = document.querySelectorAll('[id*=sort-by]');
+    sortLabel.forEach((ele)=>{
+        ele.addEventListener('click', function(e){
+            e.preventDefault();
+             sortBy = this.querySelector('input').value;
+            loadAllReq(sortBy,searchTerm);
+        })
+    })
+   
+       
     /*customly pass form data onsubmit*/
     const newVidReq = document.getElementById('newvidreq');
     newVidReq.addEventListener('submit', (e)=>{
@@ -63,7 +129,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
       })
       .then(blob =>  blob.json() )
       .then((vidInfo) => {
-        reqList.prepend(createNewCard(vidInfo))
+       
+        createNewCard(vidInfo, true);
     })
       
     })
