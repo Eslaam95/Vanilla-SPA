@@ -1,7 +1,16 @@
 var VideoRequest = require('./../models/video-requests.model');
+const User = require('./../models/user.model');
 
 module.exports = {
-  createRequest: (vidRequestData) => {
+  createRequest:  async (vidRequestData) => {
+    const authorId = vidRequestData.author_id;
+    if(authorId){
+      const userobj = await User.findOne({_id: authorId});
+      console.log("uther_name exists is "+ userobj );
+      vidRequestData.author_name = userobj.author_name;
+      vidRequestData.author_email = userobj.author_email;
+    }
+    console.log(vidRequestData);
     let newRequest = new VideoRequest(vidRequestData);
     return newRequest.save();
   },
@@ -12,9 +21,8 @@ module.exports = {
 
   searchRequests: (topic) => {
     return VideoRequest.find({
-       topic_title: {$regex:topic, $options:'i'},
-     })
-      .sort({ addedAt: '-1' })
+       topic_title: {$regex: topic, $options:'i'},
+     }).sort({ addedAt: '-1' })
   },
 
   getRequestById: (id) => {

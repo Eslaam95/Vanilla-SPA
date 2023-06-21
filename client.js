@@ -1,7 +1,13 @@
-let sortBy='newFirst';
-let searchTerm ='';
+
+
 const reqList = document.getElementById('listOfRequests');
 const searchBox = document.getElementById('search-box');  
+
+const state={
+    sortBy:'newFirst',
+    searchTerm:'',
+    userId:'',
+}
 /*render 1 video card with votes function*/
 function createNewCard(vidInfo, injected = false){
    
@@ -95,16 +101,65 @@ function debounce(fn,time){
     }
 }
 
+
+function valideForm(formData){
+    /*const name = formData.get('author_name');
+    const mail = formData.get('author_email');*/
+    const title = formData.get('topic_title');
+    const details = formData.get('topic_details');
+    
+    /*if(!name){
+        document.querySelector('[name=author_name]').classList.add("is-invalid");
+        
+    }
+    const mailPattern = /(?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*|"(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])*")@(?:(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|\[(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|[a-z0-9-]*[a-z0-9]:(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])+)\])/;
+
+    if(!mail || !(mailPattern.test(mail))){
+        document.querySelector('[name=author_email]').classList.add("is-invalid");
+        
+    } */
+    if(!title || title.length > 30){
+        document.querySelector('[name=topic_title]').classList.add("is-invalid");
+        
+    } if(!details){
+        document.querySelector('[name=topic_details]').classList.add("is-invalid");
+        
+    }
+    let invalidElems = document.querySelectorAll(".is-invalid");
+    if (invalidElems.length){
+        console.log("I'm here");
+        invalidElems.forEach((ele)=>{
+            ele.addEventListener('input',(e)=>{
+                e.target.classList.remove("is-invalid");
+            })
+        })
+        return false;
+    }
+   
+        return true;
+    
+    
+}
+
 /*MAIN*/
 document.addEventListener('DOMContentLoaded', ()=>{
     /*display req cards*/
-    loadAllReq(sortBy,searchTerm);
+    loadAllReq(state.sortBy,state.searchTerm);
+    /*user logged in */
+    const formLoginElm = document.getElementById('login-form');
+    const appContentElm = document.getElementById('app-content');
+    if(window.location.search){
+         state.userId = new URLSearchParams(window.location.search).get('id');
+        formLoginElm.classList.add('d-none');
+        appContentElm.classList.remove('d-none');
+    }
 
+    /*search*/
     searchBox.addEventListener(
         'input', 
         debounce((e)=>{
-            searchTerm = e.target.value;
-            loadAllReq(sortBy,searchTerm);
+            state.searchTerm = e.target.value;
+            loadAllReq(state.sortBy,state.searchTerm);
         },300)
     )
     /*cort req cards*/
@@ -112,8 +167,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
     sortLabel.forEach((ele)=>{
         ele.addEventListener('click', function(e){
             e.preventDefault();
-             sortBy = this.querySelector('input').value;
-            loadAllReq(sortBy,searchTerm);
+             state.sortBy = this.querySelector('input').value;
+            loadAllReq(state.sortBy,state.searchTerm);
         })
     })
    
@@ -123,6 +178,9 @@ document.addEventListener('DOMContentLoaded', ()=>{
     newVidReq.addEventListener('submit', (e)=>{
       e.preventDefault();
       const formData = new FormData(newVidReq);
+      formData.append('author_id', state.userId);
+      let validator = valideForm(formData);
+      if (!validator){console.log("failed");return;}
       fetch('http://localhost:7777/video-request',{
           method: 'POST',
           body: formData,
