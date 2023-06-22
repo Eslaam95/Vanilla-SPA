@@ -1,12 +1,13 @@
 
-
+const newVidReq = document.getElementById('newvidreq');
 const reqList = document.getElementById('listOfRequests');
 const searchBox = document.getElementById('search-box');  
-
+const superUserId = "1995";
 const state={
     sortBy:'newFirst',
     searchTerm:'',
     userId:'',
+    isSuperUser:false
 }
 /*render 1 video card with votes function*/
 function createNewCard(vidInfo, injected = false){
@@ -15,6 +16,22 @@ function createNewCard(vidInfo, injected = false){
 
     cardContainer.innerHTML=` 
         <div class="card mb-3">
+        ${state.isSuperUser ? 
+            `<div class="card-header d-flex justify-content-between">
+            <select id="admin_change_state_${vidInfo._id}">
+            <option value="new">new</option>
+            <option value="planned">planned</option>
+            <option value="done">done</option>
+            </select>
+            <div id="vid_res_${vidInfo._id}" class="input-group ml-2 mr-5 ${vidInfo.status !='done'? `d-none`:''}">
+            <input type="text" class="form-control" placeholder="paste youtube video ID" id="admin_vid_req_${vidInfo._id}">
+            <div class="input-group-append">
+                <button class="btn btn-outline-secondary" type="button" id="admin_save_vid_res_${vidInfo._id}">save</button>
+            </div>
+            </div>
+            <button class="btn btn-danger" id="admin_del_vid_req_${vidInfo._id}">delete</button>
+        </div>`
+        :''}
             <div class="card-body d-flex justify-content-between flex-row">
             <div class="d-flex flex-column">
                 <h3>${vidInfo.topic_title}</h3>
@@ -25,7 +42,7 @@ function createNewCard(vidInfo, injected = false){
             </div>
             <div class="d-flex flex-column text-center">
                 <a id="votes_ups_${vidInfo._id}" class="btn btn-link">🔺</a>
-                <h3 id="votes_score_${vidInfo._id}">${vidInfo.votes.ups - vidInfo.votes.downs}</h3>
+                <h3 id="score_${vidInfo._id}">${vidInfo.votes.ups.length - vidInfo.votes.downs.length}</h3>
                 <a id="votes_downs_${vidInfo._id}" class="btn btn-link">🔻</a>
             </div>
             </div>
@@ -50,35 +67,122 @@ function createNewCard(vidInfo, injected = false){
         reqList.appendChild(cardContainer); 
     }
 
-      
-    /*card votes up/down*/
-    const votesUpsElm = document.getElementById(`votes_ups_${vidInfo._id}`);
-    const votesDownsElm = document.getElementById(`votes_downs_${vidInfo._id}`);
-    const votesScoreElm = document.getElementById(`votes_score_${vidInfo._id}`);
+
+    if(state.isSuperUser){
+        const adminChangeStateElm = document.getElementById(`admin_change_state_${vidInfo._id}`);
+        const adminVidResContainer = document.getElementById(`vid_res_${vidInfo._id}`);
+        const adminVideReqElm = document.getElementById(`admin_vid_req_${vidInfo._id}`);
+        const adminSaveVidResElm = document.getElementById(`admin_save_vid_res_${vidInfo._id}`);
+        const adminDelVidReqElm = document.getElementById(`admin_del_vid_req_${vidInfo._id}`);
+        adminChangeStateElm.value = vidInfo.status;
+        adminVideReqElm.value = vidInfo.video_ref.link;
+        adminChangeStateElm.addEventListener('change',(e)=>{
+            if(e.target.value === "done"){
+                adminVidResContainer.classList.remove("d-none");
+            }else{
+                adminVidResContainer.classList.add("d-none");
+                updatevidReq(vidInfo._id, e.target.value, '');
+            }
+        })
+        adminSaveVidResElm.addEventListener('click',(e)=>{
+            if(!adminVideReqElm.value){
+                adminVideReqElm.classList.add('is-invalid');
+                adminVideReqElm.addEventListener('input', (e)=>{
+                    adminVideReqElm.classList.remove('is-invalid');
+                })
+                return;
+            }
+
+            
+            updatevidReq(vidInfo._id, 'done', adminVideReqElm.value);
+            
+        })
+
+
+        adminDelVidReqElm.addEventListener('click',()=>{
+            fetch('http://localhost:7777/video-request',{
+                method:"DELETE",
+                headers:{'content-Type':'application/json'},
+                body:JSON.stringify({
+                    id:vidInfo._id,
+                }),
+            })
+            .then(window.location.reload())
+        })
+    }
+
     
-    votesUpsElm.addEventListener('click', (e) =>{
-        
-        fetch('http://localhost:7777/video-request/vote',{
-            method:"PUT",
-            headers:{'content-Type':'application/json'},
-            body: JSON.stringify({id:vidInfo._id, vote_type:'ups'})
+    applyVotesStyel(vidInfo._id, vidInfo.votes);
+    /*card votes up/down*/
+
+    const votesScoreElm = document.getElementById(`score_${vidInfo._id}`);
+    const votesElm = document.querySelectorAll(`[id^=votes][id$=_${vidInfo._id}]`);
+   
+    votesElm.forEach((elm) =>{
+        if(state.isSuperUser){return;}
+        elm.addEventListener('click', function(e){
+            e.preventDefault();
+            const [, vote_type, id] = e.target.getAttribute('id').split('_');
+            fetch('http://localhost:7777/video-request/vote',{
+                method:"PUT",
+                headers:{'content-Type':'application/json'},
+                body: JSON.stringify({id, vote_type, user_id:state.userId})
+            })
+            .then(blob => blob.json())
+            .then(data => {
+                votesScoreElm.innerHTML = data.ups.length - data.downs.length;
+                applyVotesStyel(id, data, vote_type);
+            })
         })
-        .then(blob => blob.json())
-        .then(data => votesScoreElm.innerHTML = data.ups - data.downs)
     })
-    votesDownsElm.addEventListener('click', (e) =>{
-        
-        fetch('http://localhost:7777/video-request/vote',{
-            method:"PUT",
-            headers:{'content-Type':'application/json'},
-            body: JSON.stringify({id:vidInfo._id, vote_type:'downs'})
-        })
-        .then(blob => blob.json())
-        .then(data => votesScoreElm.innerHTML = data.ups - data.downs)
-    })
+   
+   
+function updatevidReq(id,status,resVideo){
+    fetch('http://localhost:7777/video-request',{
+                method:"PUT",
+                headers:{'content-Type':'application/json'},
+                body:JSON.stringify({
+                    id,
+                    status, 
+                    resVideo ,
+                }),
+            })
+            .then(resl => resl.json())
+            .then(window.location.reload())
 
 }
+    
+ 
 
+}
+function applyVotesStyel(video_id, votes_list, vote_type){
+    const votesUpsElm = document.getElementById(`votes_ups_${video_id}`);
+    const votesDownsElm = document.getElementById(`votes_downs_${video_id}`);
+    if(state.isSuperUser){
+        votesUpsElm.style.opacity = '0.5';
+        votesUpsElm.style.cursor="not-allowed";
+        votesDownsElm.style.opacity = '0.5';
+        votesDownsElm.style.cursor="not-allowed";
+    }
+    if(!vote_type){
+        if(votes_list.ups.includes(state.userId)){
+            vote_type='ups';
+        }else if(votes_list.downs.includes(state.userId)){
+            vote_type='downs';
+        }else{
+            return;
+        }
+    }
+    const voteDirElm= vote_type==='ups'? votesUpsElm:votesDownsElm;
+    const voteOtherElm= vote_type==='ups'? votesDownsElm:votesUpsElm;
+    if(votes_list[vote_type].includes(state.userId)){
+        voteDirElm.style.opacity = '0.5';
+        voteOtherElm.style.opacity = '1';
+    }else{
+        votesUpsElm.style.opacity = '1';
+        votesDownsElm.style.opacity = '1';
+    }
+}
 /*load cards' data and add it to the section*/
 function loadAllReq(sortBy="newFirst",searchTerm=''){
     fetch(`http://localhost:7777/video-request?sortBy=${sortBy}&searchTerm=${searchTerm}`)
@@ -103,21 +207,11 @@ function debounce(fn,time){
 
 
 function valideForm(formData){
-    /*const name = formData.get('author_name');
-    const mail = formData.get('author_email');*/
+  
     const title = formData.get('topic_title');
     const details = formData.get('topic_details');
     
-    /*if(!name){
-        document.querySelector('[name=author_name]').classList.add("is-invalid");
-        
-    }
-    const mailPattern = /(?:[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*|"(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21\x23-\x5b\x5d-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])*")@(?:(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?|\[(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?|[a-z0-9-]*[a-z0-9]:(?:[\x01-\x08\x0b\x0c\x0e-\x1f\x21-\x5a\x53-\x7f]|\\[\x01-\x09\x0b\x0c\x0e-\x7f])+)\])/;
-
-    if(!mail || !(mailPattern.test(mail))){
-        document.querySelector('[name=author_email]').classList.add("is-invalid");
-        
-    } */
+   
     if(!title || title.length > 30){
         document.querySelector('[name=topic_title]').classList.add("is-invalid");
         
@@ -150,6 +244,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const appContentElm = document.getElementById('app-content');
     if(window.location.search){
          state.userId = new URLSearchParams(window.location.search).get('id');
+         if(state.userId === superUserId){
+            state.isSuperUser = true;
+            newVidReq.classList.add("d-none");
+         }
         formLoginElm.classList.add('d-none');
         appContentElm.classList.remove('d-none');
     }
@@ -174,7 +272,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
    
        
     /*customly pass form data onsubmit*/
-    const newVidReq = document.getElementById('newvidreq');
+    
     newVidReq.addEventListener('submit', (e)=>{
       e.preventDefault();
       const formData = new FormData(newVidReq);

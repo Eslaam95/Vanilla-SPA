@@ -37,8 +37,8 @@ app.get('/video-request', async (req, res, next) => {
   /*sort top-first option*/
   if (sortBy === 'topVotedFirst'){
     data = data.sort((prev,next)=>{
-      if((prev.votes.ups - prev.votes.downs) >
-        (next.votes.ups - next.votes.downs)){
+      if((prev.votes.ups.length - prev.votes.downs.length) >
+        (next.votes.ups.length - next.votes.downs.length)){
         return -1;
       }else{return 1}
     })
@@ -62,8 +62,8 @@ app.post('/users/login', async (req, res, next) => {
 app.use(express.json());
 
 app.put('/video-request/vote', async (req, res, next) => {
-  const { id, vote_type } = req.body;
-  const response = await VideoRequestData.updateVoteForRequest(id, vote_type);
+  const { id, vote_type, user_id } = req.body;
+  const response = await VideoRequestData.updateVoteForRequest(id, vote_type, user_id);
   res.send(response.votes);
   next();
 });
