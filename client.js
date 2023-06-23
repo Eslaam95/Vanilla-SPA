@@ -141,7 +141,7 @@ function createNewCard(vidInfo, injected = false){
         })
     })
    
-   
+} 
 function updatevidReq(id,status,resVideo){
     fetch('http://localhost:7777/video-request',{
                 method:"PUT",
@@ -157,9 +157,6 @@ function updatevidReq(id,status,resVideo){
 
 }
     
- 
-
-}
 function applyVotesStyel(video_id, votes_list, vote_type, isDisabled){
     const votesUpsElm = document.getElementById(`votes_ups_${video_id}`);
     const votesDownsElm = document.getElementById(`votes_downs_${video_id}`);
@@ -212,7 +209,7 @@ function debounce(fn,time){
 }
 
 
-function valideForm(formData){
+function validateForm(formData){
   
     const title = formData.get('topic_title');
     const details = formData.get('topic_details');
@@ -297,7 +294,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
       e.preventDefault();
       const formData = new FormData(newVidReq);
       formData.append('author_id', state.userId);
-      let validator = valideForm(formData);
+      let validator = validateForm(formData);
       if (!validator){console.log("failed");return;}
       fetch('http://localhost:7777/video-request',{
           method: 'POST',
